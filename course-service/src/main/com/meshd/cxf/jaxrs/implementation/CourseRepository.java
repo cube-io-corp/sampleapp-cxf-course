@@ -33,6 +33,7 @@ public class CourseRepository {
     @GET
     @Path("courses/{courseId}")
     public Course getCourse(@PathParam("courseId") int courseId) {
+        System.out.println("GET Request to courses");
         return findById(courseId);
     }
 

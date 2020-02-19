@@ -103,6 +103,12 @@
             <artifactId>okhttp</artifactId>
             <version>3.9.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.cxf/cxf-rt-rs-client -->
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-rs-client</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -130,7 +136,7 @@
 
     <properties>
         <httpclient.version>4.5.2</httpclient.version>
-	      <cxf.version>2.7.18</cxf.version>
+	      <cxf.version>3.0.4</cxf.version>
     	  <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
