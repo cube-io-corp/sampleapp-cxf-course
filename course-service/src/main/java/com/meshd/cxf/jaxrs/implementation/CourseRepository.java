@@ -1,16 +1,39 @@
 package com.meshd.cxf.jaxrs.implementation;
 
-import javax.ws.rs.*;
-import javax.ws.rs.core.Response;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Response;
+
+import org.apache.cxf.jaxrs.client.WebClient;
+import org.apache.http.client.utils.URIBuilder;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.cube.interceptor.apachecxf.egress.ClientFilter;
+import com.cube.interceptor.apachecxf.egress.TracingFilter;
+
 @Path("meshd")
 @Produces("application/json")
 public class CourseRepository {
     private Map<Integer, Course> courses = new HashMap<>();
+    private String BASE_URL = System.getenv("student.service.url");
+    private String URL = BASE_URL!=null ? BASE_URL + "/meshd/students?source=aaa&trial=bbb" :
+        "http://34.220.106.159:8080/meshd/students?source=aaa&trial=bbb";
+//    private String URL = "http://34.220.106.159:8080/meshd/students?source=aaa&trial=bbb";
 
     {
         List<Integer> studentIds = new ArrayList<>();
@@ -50,6 +73,23 @@ public class CourseRepository {
         return Response.ok().build();
     }
 
+    @POST
+    @Path("courses/{courseId}/student")
+    public Response addStudent(@PathParam("courseId") int courseId, Student student) {
+        Course existingCourse = findById(courseId);
+        if (existingCourse == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        try {
+            return existingCourse.createStudent(student);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return Response.serverError().build();
+    }
+
     @Path("courses/{courseId}/students")
     public Course pathToStudent(@PathParam("courseId") int courseId) {
         return findById(courseId);
@@ -62,5 +102,50 @@ public class CourseRepository {
             }
         }
         return null;
+    }
+
+    @GET
+    @Path("courses/students/{studentId}")
+    public Student findStudentById(@PathParam("studentId") int id) throws URISyntaxException {
+//        WebClient studentWebClient = webClient.path(URL + id);
+        URIBuilder uriBuilder = new URIBuilder(URL);
+        uriBuilder.setPath(uriBuilder.getPath()+"/"+id);
+        WebClient studentWebClient = WebClient.create(uriBuilder.build().toString(), List.of(new ClientFilter(), new TracingFilter())).accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
+            javax.ws.rs.core.MediaType.APPLICATION_JSON);
+//        WebClient studentWebClient = webClient;
+
+        Response response = studentWebClient.get();
+        int code = response.getStatus();
+        if (code >= 200 && code <= 299) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            String studentString = response.readEntity(String.class);
+            Student student = null;
+            try {
+                student = objectMapper.readValue(studentString, Student.class);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return student;
+//                return objectMapper.readValue(response.body().string(), Student.class);
+        }
+        return null;
+    }
+
+    @GET
+    @Path("/dummyCourseList")
+    public List<Course> dummyCourseList(@QueryParam("count") int courseCount) {
+        List<Course> courseList = new ArrayList<>();
+        for (int i=0; i<courseCount; i++) {
+            Course course = new Course();
+            course.setId(i+1);
+            course.setName("Course " + (i+1));
+//            List<Integer> studentIds = new ArrayList<>();
+//            studentIds.add(i);
+//            course.setStudents(studentIds);
+            courseList.add(course);
+        }
+        return courseList;
     }
 }
