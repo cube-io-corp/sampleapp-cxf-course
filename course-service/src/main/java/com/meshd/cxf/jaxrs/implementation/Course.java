@@ -1,7 +1,10 @@
 package com.meshd.cxf.jaxrs.implementation;
 
+import static io.cube.apachecxf.egress.Utils.getMockingURI;
+
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.ws.rs.DELETE;
@@ -17,11 +20,14 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.cxf.jaxrs.client.ClientConfiguration;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.client.utils.URIBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.cube.interceptor.apachecxf.egress.ClientFilter;
-import com.cube.interceptor.apachecxf.egress.MockingClientFilter;
-import com.cube.interceptor.apachecxf.egress.TracingFilter;
+
+import io.cube.apachecxf.egress.MDClientLoggingFilter;
+import io.cube.apachecxf.egress.MDClientMockingFilter;
+import io.cube.apachecxf.egress.MDClientTracingFilter;
 
 
 @XmlRootElement(name = "Course")
@@ -33,8 +39,11 @@ public class Course {
     private String URL = BASE_URL!=null ? BASE_URL + "/meshd/students?source=aaa&trial=bbb" :
         "http://34.220.106.159:8080/meshd/students?source=aaa&trial=bbb";
     //    private String URL = "http://34.220.106.159:8080/meshd/students?source=aaa&trial=bbb";
-    private WebClient webClient = WebClient.create(URL, List.of(new ClientFilter(), new TracingFilter(), new MockingClientFilter()), true).accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
+    private WebClient webClient = WebClient.create(URL, Arrays
+        .asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()), true).accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
         javax.ws.rs.core.MediaType.APPLICATION_JSON);
+
+    private Logger logger = LoggerFactory.getLogger(Course.class);
 
     public int getId() {
         return id;
@@ -75,7 +84,9 @@ public class Course {
             }
         }
         ObjectMapper objectMapper = new ObjectMapper();
-        Response response = webClient.type(MediaType.APPLICATION_JSON).post(objectMapper.writeValueAsString(student));
+        WebClient localWebClient = WebClient.fromClient(webClient).create(getMockingURI(webClient.getBaseURI().toString()), Arrays
+            .asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()));
+        Response response = localWebClient.type(MediaType.APPLICATION_JSON).post(objectMapper.writeValueAsString(student));
         int responseCode = response.getStatus();
         if (responseCode >= 200 && responseCode <= 299) {
             studentIds.add(student.getId());
@@ -94,11 +105,16 @@ public class Course {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        logger.info("Student to be delete is found :" + studentId);
+
         URIBuilder uriBuilder = new URIBuilder(URL);
         uriBuilder.setPath(uriBuilder.getPath()+"/"+studentId);
+
+        logger.info("Student delete call to be sent  :" + uriBuilder.getPath());
         WebClient studentWebClient = webClient.path(uriBuilder.build().toString());
 
         Response response = studentWebClient.delete();
+        logger.info("Student delete call response  :" + response.getStatus());
 
         int code = response.getStatus();
 
@@ -110,11 +126,12 @@ public class Course {
 
         URIBuilder uriBuilder = new URIBuilder(URL);
         uriBuilder.setPath(uriBuilder.getPath()+"/"+id);
+        logger.info("Sending call to student service :" + uriBuilder.toString());
         WebClient studentWebClient = webClient.path(uriBuilder.build().toString());
 
-        ClientConfiguration config = WebClient.getConfig(studentWebClient);
         Response response = studentWebClient.get();
 
+        logger.info("Response status from student service " + response.getStatus());
             int code = response.getStatus();
             if (code >= 200 && code <= 299) {
                 ObjectMapper objectMapper = new ObjectMapper();
