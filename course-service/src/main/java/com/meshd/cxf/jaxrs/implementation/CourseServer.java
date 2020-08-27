@@ -10,9 +10,9 @@ import org.apache.cxf.jaxrs.lifecycle.SingletonResourceProvider;
 
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 
-import io.cube.agent.ClientUtils;
-import io.cube.apachecxf.ingress.MDLoggingFilter;
-import io.cube.apachecxf.ingress.MDTracingFilter;
+//import io.cube.agent.ClientUtils;
+//import io.cube.apachecxf.ingress.MDLoggingFilter;
+//import io.cube.apachecxf.ingress.MDTracingFilter;
 
 
 public class  CourseServer {
@@ -20,8 +20,11 @@ public class  CourseServer {
         JAXRSServerFactoryBean factoryBean = new JAXRSServerFactoryBean();
         factoryBean.setResourceClasses(CourseRepository.class);
         factoryBean.setResourceProvider(new SingletonResourceProvider(new CourseRepository()));
+//        factoryBean.setProviders(
+//            Arrays.asList(new JacksonJaxbJsonProvider(), new MDTracingFilter(), new MDLoggingFilter()));
         factoryBean.setProviders(
-            Arrays.asList(new JacksonJaxbJsonProvider(), new MDTracingFilter(), new MDLoggingFilter()));
+            Arrays.asList(new JacksonJaxbJsonProvider()));
+
         factoryBean.setAddress("http://0.0.0.0:8084/");
         Server server = factoryBean.create();
 
@@ -37,7 +40,7 @@ public class  CourseServer {
         Map<String, String> initMap = new HashMap();
         initMap.put(serviceInstanceProp, serviceInstance);
         initMap.put(cloudNameProp, cloudName);
-        ClientUtils.initialize(initMap);
+//        ClientUtils.initialize(initMap);
 
         System.out.println("Server ready...");
     }

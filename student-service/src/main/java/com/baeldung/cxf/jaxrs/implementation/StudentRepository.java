@@ -1,5 +1,6 @@
 package com.baeldung.cxf.jaxrs.implementation;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,11 +14,27 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
+
+import org.apache.cxf.jaxrs.client.WebClient;
+import org.apache.cxf.transport.http.HTTPConduit;
+import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
+import org.apache.http.client.utils.URIBuilder;
+
+import io.opentracing.Span;
+import io.opentracing.util.GlobalTracer;
 
 @Path("meshd")
 @Produces("application/json")
 public class StudentRepository {
+  private String BASE_URL = System.getenv("subject.service.url");
+  private String URL = BASE_URL != null ? BASE_URL + "/meshd/subjects?Ssource=aaa&Ttrial=bbb" :
+      "http://34.220.106.159:8080/meshd/subjects?Ssource=aaa&Ttrial=bbb";
+//  private Logger LOGGER = LoggerFactory.getLogger(CourseRepository.class);
+
+
   private Map<Integer, Student> students = new HashMap<>();
 
   {
@@ -72,7 +89,7 @@ public class StudentRepository {
 
   @GET
   @Path("students/dummyStudentList")
-  public List<Student> dummyStudentList(@QueryParam("count") int studentCount) {
+  public List<Student> dummyStudentList(@Context HttpHeaders headers, @QueryParam("count") int studentCount) {
     List<Student> studentList = new ArrayList<>();
     Student student = new Student();
     student.setId(studentCount);
@@ -82,4 +99,40 @@ public class StudentRepository {
     }
     return studentList;
   }
+
+  @GET
+  @Path("students/getDepth2")
+  public Response getDepth2(@Context HttpHeaders headers, @QueryParam("count") int studentCount)
+      throws URISyntaxException {
+//    LOGGER.info("Received called to course/getDepth2");
+    final Span span = GlobalTracer.get().activeSpan();
+
+    System.out.println("TraceId: " + span.context().toTraceId());
+    System.out.println("SpanId: " + span.context().toSpanId());
+
+    URIBuilder uriBuilder = new URIBuilder(URL);
+    uriBuilder.setPath(uriBuilder.getPath() + "/getDepth2");
+    uriBuilder.addParameter("count", String.valueOf(studentCount));
+    WebClient subjectWebClient = WebClient.create(uriBuilder.build().toString())
+        .accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
+            javax.ws.rs.core.MediaType.APPLICATION_JSON);
+
+    HTTPConduit http = WebClient.getConfig(subjectWebClient).getHttpConduit();
+    HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+    httpClientPolicy.setConnectionTimeout(0);
+    http.setClient(httpClientPolicy);
+
+    Response response = subjectWebClient.get();
+//    LOGGER.info(
+//        "Recieved response from student/getDepth2. \nStatus" + response.getStatus()
+//            + "\nResponse: " + response.toString());
+
+    final Span span2 = GlobalTracer.get().activeSpan();
+
+    System.out.println("TraceId after call: " + span2.context().toTraceId());
+    System.out.println("SpanId after call: " + span2.context().toSpanId());
+
+    return response;
+  }
+
 }

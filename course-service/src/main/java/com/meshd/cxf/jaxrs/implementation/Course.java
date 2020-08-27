@@ -1,6 +1,6 @@
 package com.meshd.cxf.jaxrs.implementation;
 
-import static io.cube.apachecxf.egress.Utils.getMockingURI;
+//import static io.cube.apachecxf.egress.Utils.getMockingURI;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -25,9 +25,9 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.cube.apachecxf.egress.MDClientLoggingFilter;
-import io.cube.apachecxf.egress.MDClientMockingFilter;
-import io.cube.apachecxf.egress.MDClientTracingFilter;
+//import io.cube.apachecxf.egress.MDClientLoggingFilter;
+//import io.cube.apachecxf.egress.MDClientMockingFilter;
+//import io.cube.apachecxf.egress.MDClientTracingFilter;
 
 
 @XmlRootElement(name = "Course")
@@ -39,8 +39,9 @@ public class Course {
     private String URL = BASE_URL!=null ? BASE_URL + "/meshd/students?source=aaa&trial=bbb" :
         "http://34.220.106.159:8080/meshd/students?source=aaa&trial=bbb";
     //    private String URL = "http://34.220.106.159:8080/meshd/students?source=aaa&trial=bbb";
-    private WebClient webClient = WebClient.create(URL, Arrays
-        .asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()), true).accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
+    private WebClient webClient = WebClient.create(URL)
+//        , Arrays.asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()), true)
+        .accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
         javax.ws.rs.core.MediaType.APPLICATION_JSON);
 
     private Logger logger = LoggerFactory.getLogger(Course.class);
@@ -84,8 +85,9 @@ public class Course {
             }
         }
         ObjectMapper objectMapper = new ObjectMapper();
-        WebClient localWebClient = WebClient.fromClient(webClient).create(getMockingURI(webClient.getBaseURI().toString()), Arrays
-            .asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()));
+        WebClient localWebClient = WebClient.fromClient(webClient).create((webClient.getBaseURI().toString()));
+//        WebClient localWebClient = WebClient.fromClient(webClient).create(getMockingURI(webClient.getBaseURI().toString()), Arrays
+//            .asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()));
         Response response = localWebClient.type(MediaType.APPLICATION_JSON).post(objectMapper.writeValueAsString(student));
         int responseCode = response.getStatus();
         if (responseCode >= 200 && responseCode <= 299) {

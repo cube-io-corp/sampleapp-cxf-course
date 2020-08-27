@@ -1,8 +1,9 @@
 package com.meshd.cxf.jaxrs.implementation;
 
-import static io.cube.apachecxf.egress.Utils.getMockingURI;
+//import static io.cube.apachecxf.egress.Utils.getMockingURI;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -18,8 +20,12 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.cxf.transport.http.HTTPConduit;
@@ -29,12 +35,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import io.cube.agent.CommonConfig;
-import io.cube.apachecxf.egress.MDClientLoggingFilter;
-import io.cube.apachecxf.egress.MDClientMockingFilter;
-import io.cube.apachecxf.egress.MDClientTracingFilter;
+import io.opentracing.Span;
+import io.opentracing.util.GlobalTracer;
+
+//import io.cube.agent.CommonConfig;
+//import io.cube.apachecxf.egress.MDClientLoggingFilter;
+//import io.cube.apachecxf.egress.MDClientMockingFilter;
+//import io.cube.apachecxf.egress.MDClientTracingFilter;
 
 @Path("meshd")
 @Produces("application/json")
@@ -134,9 +145,11 @@ public class CourseRepository {
 	public Student findStudentById(@PathParam("studentId") int id) throws URISyntaxException {
 		URIBuilder uriBuilder = new URIBuilder(URL);
 		uriBuilder.setPath(uriBuilder.getPath() + "/" + id);
-		WebClient studentWebClient = WebClient.create(getMockingURI(uriBuilder.build().toString()),
-			Arrays.asList(new MDClientLoggingFilter(), new MDClientTracingFilter(),
-				new MDClientMockingFilter()))
+		WebClient studentWebClient = WebClient.create((uriBuilder.build().toString()))
+
+//			.create(getMockingURI(uriBuilder.build().toString()),
+//			Arrays.asList(new MDClientLoggingFilter(), new MDClientTracingFilter(),
+//				new MDClientMockingFilter()))
 			.accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
 				javax.ws.rs.core.MediaType.APPLICATION_JSON);
 
@@ -161,12 +174,15 @@ public class CourseRepository {
 	@GET
 	@Path("/dummyCourseList")
 	public Course[] dummyCourseList(@QueryParam("count") int courseCount,
-		@QueryParam("changeNameCount") int changeNameCount, @QueryParam("changeAll") boolean changeAll) {
-		if(changeNameCount > courseCount || changeNameCount > 100) return new Course[1];
+		@QueryParam("changeNameCount") int changeNameCount,
+		@QueryParam("changeAll") boolean changeAll) {
+		if (changeNameCount > courseCount || changeNameCount > 100) {
+			return new Course[1];
+		}
 		Course[] courseArray = new Course[courseCount];
 		Course course = new Course();
 		course.setId(courseCount);
-		String name = changeAll ?  UUID.randomUUID().toString() : "Dummy Course";
+		String name = changeAll ? UUID.randomUUID().toString() : "Dummy Course";
 		course.setName(name);
 		for (int i = 0; i < courseCount; i++) {
 			courseArray[i] = course;
@@ -174,9 +190,9 @@ public class CourseRepository {
 
 		//Change name count is assumed to be a lower number ideally less than 20
 		// Because we're creating that many objects.
-		if(changeAll==false && changeNameCount!=0) {
-			for (int i=0; i< changeNameCount; i++ ) {
-				int randInd = (int)(Math.random() * (courseCount));
+		if (changeAll == false && changeNameCount != 0) {
+			for (int i = 0; i < changeNameCount; i++) {
+				int randInd = (int) (Math.random() * (courseCount));
 				Course courseChange = new Course();
 				courseChange.setId(courseCount);
 				courseChange.setName(UUID.randomUUID().toString());
@@ -194,8 +210,11 @@ public class CourseRepository {
 		URIBuilder uriBuilder = new URIBuilder(URL);
 		uriBuilder.setPath(uriBuilder.getPath() + "/dummyStudentList");
 		uriBuilder.addParameter("count", String.valueOf(studentCount));
-		WebClient studentWebClient = WebClient.create(getMockingURI(uriBuilder.build().toString()), Arrays
-			.asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()))
+		WebClient studentWebClient = WebClient.create(uriBuilder.build().toString())
+
+//			.create(getMockingURI(uriBuilder.build().toString()), Arrays
+//				.asList(new MDClientLoggingFilter(), new MDClientMockingFilter(),
+//					new MDClientTracingFilter()))
 			.accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
 				javax.ws.rs.core.MediaType.APPLICATION_JSON);
 
@@ -205,19 +224,24 @@ public class CourseRepository {
 		http.setClient(httpClientPolicy);
 
 		Response response = studentWebClient.get();
-		LOGGER.info("Recieved response from student/dummyStudentList. \nStatus" + response.getStatus() + "\nResponse: " + response.toString());
+		LOGGER.info(
+			"Recieved response from student/dummyStudentList. \nStatus" + response.getStatus()
+				+ "\nResponse: " + response.toString());
 		return response;
 	}
 
 
 	@POST
 	@Path("/createStudentNew")
-	public Response createStudent(Student student) throws Exception     {
+	public Response createStudent(Student student) throws Exception {
 
 		ObjectMapper objectMapper = new ObjectMapper();
-		WebClient localWebClient = WebClient.create(getMockingURI(URL), Arrays
-			.asList(new MDClientLoggingFilter(), new MDClientMockingFilter(), new MDClientTracingFilter()));
-		Response response = localWebClient.type(MediaType.APPLICATION_JSON).post(objectMapper.writeValueAsString(student));
+//		WebClient localWebClient = WebClient.create(getMockingURI(URL), Arrays
+//			.asList(new MDClientLoggingFilter(), new MDClientMockingFilter(),
+//				new MDClientTracingFilter()));
+		WebClient localWebClient = WebClient.create(URL);
+		Response response = localWebClient.type(MediaType.APPLICATION_JSON)
+			.post(objectMapper.writeValueAsString(student));
 		int responseCode = response.getStatus();
 		if (responseCode >= 200 && responseCode <= 299) {
 			return Response.ok(student).build();
@@ -225,5 +249,80 @@ public class CourseRepository {
 			throw new IllegalArgumentException(
 				"HTTP error response returned by Transformer service " + responseCode);
 		}
+	}
+
+
+	@GET
+	@Path("/echo")
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response echo(JsonNode body, @Context UriInfo uriInfo, @Context HttpHeaders httpHeaders) {
+
+		try {
+			MultivaluedMap<String, String> queryParams = uriInfo.getQueryParameters();
+			MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
+			URI url = uriInfo.getRequestUri();
+
+
+//			((ObjectNode)body).put("Kuch kuch", "NAHI hota hai");
+
+			Map jsonMap = new HashMap();
+			jsonMap.put("queryParams", queryParams);
+			jsonMap.put("headers", headers);
+			jsonMap.put("url", url);
+			jsonMap.put("body", body);
+
+			return Response.ok().entity(objectMapper.writeValueAsString(jsonMap)).build();
+		} catch (Exception e) {
+			return Response.serverError().entity("Error while returning echo info" + e.getMessage())
+				.build();
+		}
+	}
+
+
+
+	@GET
+	@Path("/getDepth2")
+	public Response getDepth2(@Context HttpHeaders headers, @QueryParam("count") int studentCount)
+		throws URISyntaxException {
+		LOGGER.info("Received called to course/getDepth2");
+
+		final Span span = GlobalTracer.get().activeSpan();
+		if (span != null) {
+			// customer_id -> 254889
+			// customer_tier -> platinum
+			// cart_value -> 867
+			span.setTag("customer.id", "customer_id");
+			span.setTag("customer.tier", "customer_tier");
+			span.setTag("cart.value", "cart_value");
+			span.setBaggageItem("Custom Baggage", "Let's get rolling Beaches !");
+			span.setBaggageItem("Random_MT", "asdasd !");
+			span.setBaggageItem("RAHS", "asdasd !");
+		}
+
+		System.out.println("TraceId: " + span.context().toTraceId());
+		System.out.println("SpanId: " + span.context().toSpanId());
+
+		URIBuilder uriBuilder = new URIBuilder(URL);
+		uriBuilder.setPath(uriBuilder.getPath() + "/getDepth2");
+		uriBuilder.addParameter("count", String.valueOf(studentCount));
+		WebClient studentWebClient = WebClient.create(uriBuilder.build().toString())
+
+//			.create(getMockingURI(uriBuilder.build().toString()), Arrays
+//				.asList(new MDClientLoggingFilter(), new MDClientMockingFilter(),
+//					new MDClientTracingFilter()))
+			.accept(javax.ws.rs.core.MediaType.APPLICATION_JSON).type(
+				javax.ws.rs.core.MediaType.APPLICATION_JSON);
+
+		HTTPConduit http = WebClient.getConfig(studentWebClient).getHttpConduit();
+		HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
+		httpClientPolicy.setConnectionTimeout(0);
+		http.setClient(httpClientPolicy);
+
+		Response response = studentWebClient.get();
+		LOGGER.info(
+			"Recieved response from student/getDepth2. \nStatus" + response.getStatus()
+				+ "\nResponse: " + response.toString());
+		return response;
 	}
 }
